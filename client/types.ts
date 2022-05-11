@@ -4,4 +4,5 @@ export type HandState = {
 	middleExtended: boolean 
 	ringExtended: boolean 
 	pinkyExtended: boolean
+	fingersExtended: number
 }

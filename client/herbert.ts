@@ -2,6 +2,7 @@ import { FACEMESH_TESSELATION, HAND_CONNECTIONS, Holistic, LandmarkConnectionArr
 import { Camera } from "@mediapipe/camera_utils";
 import { drawConnectors, drawLandmarks } from "@mediapipe/drawing_utils";
 import { crossproduct, normalize, diretionBetween, dotProduct, Point } from "./meth";
+import { HandState } from "./types";
 
 const videoElement : HTMLVideoElement = <HTMLVideoElement> document.getElementsByClassName('input_video')[0];
 const canvasElement : HTMLCanvasElement = <HTMLCanvasElement> document.getElementsByClassName('output_canvas')[0];
@@ -34,41 +35,85 @@ const Index_Pinky_MCP = 18;
 const Index_Pinky_IP = 19;
 const Index_Pinky_TIP = 20;
 
+var lastState : HandState|undefined = undefined
+
 enum Finger {
-	Thumb = 1,
+	Thumb = 2,
 	Index = 5,
-	Middle = 19,
+	Middle = 9,
 	Ring = 13,
 	Pinky = 17,
 }
 
 const FINGERS = [Finger.Thumb,Finger.Index,Finger.Middle,Finger.Ring,Finger.Pinky]
 
+function getJointIndexesOf(finger: Finger): number[] {
+	if (finger === Finger.Thumb) {
+		return [2, 3, 4]
+	}
+	const startIndex : number = finger
+	return [startIndex, startIndex+1, startIndex+2, startIndex+3]
+}
+
 function onResults(results :any) {
 	
 	if (results.rightHandLandmarks) {
 		const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger))
-		console.log(extendedArray, extendedArray.filter(b => b).length)
+
+		var newState = {
+			thumbExtended: extendedArray[0],
+			indexExtended: extendedArray[1],
+			middleExtended: extendedArray[2],
+			ringExtended: extendedArray[3],
+			pinkyExtended: extendedArray[4],
+			fingersExtended: extendedArray.filter(b => b).length
+		}
+
+		if(lastState === undefined || !statesAreSame(lastState, newState) ){
+			sendStateToServer(newState)
+		}
+
+		lastState = newState
 	}
 
 	DisplayVisualizationOf(results);
 }
 
+function sendStateToServer(state : HandState){
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST', '/Commands');
+	xhr.setRequestHeader("Content-Type", "application/json");
 
+	xhr.onreadystatechange = function() { // Call a function when the state changes.
+		if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+			console.log('recived',this.response)
+		}
+	}
+	xhr.send(JSON.stringify(state));
+	console.log('sent',state)
+}
+
+function statesAreSame(state1 : HandState, state2 : HandState) : boolean {
+	return state1.thumbExtended == state2.thumbExtended &&
+	state1.indexExtended == state2.indexExtended &&
+	state1.middleExtended == state2.middleExtended &&
+	state1.ringExtended == state2.ringExtended &&
+	state1.pinkyExtended == state2.pinkyExtended
+}
 
 function isExtended(landmarks : Point[], finger: Finger) {
-	var dirs = [];
-	
-	for (let i = finger; i < finger+3; i++) {
-		var dir = normalize(diretionBetween(landmarks[i],landmarks[i+1]))
-		dirs.push(dir)
-	}
-	
+	var indexes = getJointIndexesOf(finger)
+	indexes.pop()
+	var dirs = indexes.map(i=>normalize(diretionBetween(landmarks[i],landmarks[i+1])));
+
 	var sumError = 0; 
 	for (let i = 0; i < dirs.length-1; i++) {
 		sumError += Math.abs(1-dotProduct(dirs[i],dirs[i+1]))
 	}
-	
+
+	if (finger===Finger.Thumb) {
+		return sumError < 0.08
+	}
 	return sumError < 0.05
 }
 

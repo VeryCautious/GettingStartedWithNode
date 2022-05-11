@@ -3,6 +3,8 @@ const bodyParser = require('body-parser')
 
 const app = express();
 
+var state = [];
+
 app.listen(8080, () => {
   console.log("Application started and Listening on port 8080");
 });
@@ -26,6 +28,6 @@ app.get("/sendtest", (req, res) => {
 
 // post endpoint
 app.post('/Commands', bodyParser.json() ,(req, res) => {
-  console.log(req.body)
-  res.end('Hello, World!');
+  state.push(req.body)
+  res.end(JSON.stringify(state));
 });
