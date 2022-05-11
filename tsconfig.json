@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {                        
+    "target": "ESNext",                               
+    "module": "ESNext",                           
+    "outDir": "./server/src/JS",                             
+    "rootDir": "./client",                             
+    "strict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,                       
+  },
+  "exclude":[
+    "./node_modules",
+    "./dist"
+  ],
+  "include": ["client/**/*"]
+}
