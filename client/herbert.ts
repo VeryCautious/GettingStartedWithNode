@@ -35,7 +35,9 @@ const Index_Pinky_MCP = 18;
 const Index_Pinky_IP = 19;
 const Index_Pinky_TIP = 20;
 
-var lastState : HandState|undefined = undefined
+var lastStateLeft : HandState | undefined = undefined
+var lastSentStateLeft : HandState | undefined = undefined
+var AmmountOfSameStates = 0
 
 enum Finger {
 	Thumb = 2,
@@ -57,8 +59,16 @@ function getJointIndexesOf(finger: Finger): number[] {
 
 function onResults(results :any) {
 	
-	if (results.rightHandLandmarks) {
-		const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger))
+	console.log(Math.round(results.rightHandLandmarks[Index_Wrist] *100) /100)
+
+	updateExtendedFingerState(results);
+
+	DisplayVisualizationOf(results);
+}
+
+function updateExtendedFingerState(results: any) {
+	if (results.leftHandLandmarks) {
+		const extendedArray = FINGERS.map(finger => isExtended(results.leftHandLandmarks, finger));
 
 		var newState = {
 			thumbExtended: extendedArray[0],
@@ -67,23 +77,33 @@ function onResults(results :any) {
 			ringExtended: extendedArray[3],
 			pinkyExtended: extendedArray[4],
 			fingersExtended: extendedArray.filter(b => b).length
+		};
+
+		var areSame = lastStateLeft !== undefined && statesAreSame(lastStateLeft, newState);
+
+		if (areSame) {
+			AmmountOfSameStates++;
+		} else {
+			AmmountOfSameStates = 0;
 		}
 
-		if(lastState === undefined || !statesAreSame(lastState, newState) ){
-			sendStateToServer(newState)
+		if (AmmountOfSameStates <= 10)
+			console.log("Stability", AmmountOfSameStates);
+
+		if (lastStateLeft === undefined || lastSentStateLeft === undefined || AmmountOfSameStates === 10) {
+			if (lastSentStateLeft === undefined || !statesAreSame(lastSentStateLeft, newState))
+				sendLeftHandStateToServer(newState);
 		}
 
-		lastState = newState
+		lastStateLeft = newState;
 	}
-
-	DisplayVisualizationOf(results);
 }
 
-function sendStateToServer(state : HandState){
+function sendLeftHandStateToServer(state : HandState){
+	lastSentStateLeft = state
 	var xhr = new XMLHttpRequest();
 	xhr.open('POST', '/Commands');
 	xhr.setRequestHeader("Content-Type", "application/json");
-
 	xhr.onreadystatechange = function() { // Call a function when the state changes.
 		if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
 			console.log('recived',this.response)
@@ -118,6 +138,10 @@ function isExtended(landmarks : Point[], finger: Finger) {
 }
 
 function DisplayVisualizationOf(results: any) {
+	if (!results || !results.segmentationMask || !results.image || !results.poseLandmarks) {
+        return
+    }
+	
 	canvasCtx.save();
 	canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 	canvasCtx.drawImage(results.segmentationMask, 0, 0,
@@ -170,7 +194,11 @@ holistic.onResults(onResults);
 
 const camera = new Camera(videoElement, {
 	onFrame: async () => {
-		await holistic.send({ image: videoElement });
+		try {
+			await holistic.send({ image: videoElement });
+		} catch (error) {
+			console.error(error)	
+		}
 	},
 	width: 1280,
 	height: 720

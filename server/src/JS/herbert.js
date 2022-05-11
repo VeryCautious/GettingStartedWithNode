@@ -25,6 +25,8 @@ const Index_Pinky_MCP = 18;
 const Index_Pinky_IP = 19;
 const Index_Pinky_TIP = 20;
 var lastState = undefined;
+var lastSentState = undefined;
+var AmmountOfSameStates = 0;
 var Finger;
 (function (Finger) {
     Finger[Finger["Thumb"] = 2] = "Thumb";
@@ -43,6 +45,8 @@ function getJointIndexesOf(finger) {
 }
 function onResults(results) {
     if (results.rightHandLandmarks) {
+        console.log(Math.round(results.rightHandLandmarks[Index_Wrist].x *100) /100,Math.round(results.rightHandLandmarks[Index_Wrist].y *100) /100)
+        
         const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger));
         var newState = {
             thumbExtended: extendedArray[0],
@@ -52,14 +56,25 @@ function onResults(results) {
             pinkyExtended: extendedArray[4],
             fingersExtended: extendedArray.filter(b => b).length
         };
-        if (lastState === undefined || !statesAreSame(lastState, newState)) {
-            sendStateToServer(newState);
+        var areSame = lastState !== undefined && statesAreSame(lastState, newState);
+        if (areSame) {
+            AmmountOfSameStates++;
+        }
+        else {
+            AmmountOfSameStates = 0;
+        }
+        if (AmmountOfSameStates <= 10)
+            console.log("Stability", AmmountOfSameStates);
+        if (lastState === undefined || lastSentState === undefined || AmmountOfSameStates === 10) {
+            if (lastSentState === undefined || !statesAreSame(lastSentState, newState))
+                sendStateToServer(newState);
         }
         lastState = newState;
     }
     DisplayVisualizationOf(results);
 }
 function sendStateToServer(state) {
+    lastSentState = state;
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/Commands');
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -67,9 +82,6 @@ function sendStateToServer(state) {
         if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
             console.log('recived', this.response);
         }
-    };
-    xhr.onload = function () {
-        console.log(this.responseText);
     };
     xhr.send(JSON.stringify(state));
     console.log('sent', state);
@@ -95,6 +107,9 @@ function isExtended(landmarks, finger) {
     return sumError < 0.05;
 }
 function DisplayVisualizationOf(results) {
+    if (!results || !results.segmentationMask || !results.image || !results.poseLandmarks) {
+        return;
+    }
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
@@ -132,7 +147,12 @@ holistic.setOptions({
 holistic.onResults(onResults);
 const camera = new Camera(videoElement, {
     onFrame: async () => {
-        await holistic.send({ image: videoElement });
+        try {
+            await holistic.send({ image: videoElement });
+        }
+        catch (error) {
+            console.error(error);
+        }
     },
     width: 1280,
     height: 720

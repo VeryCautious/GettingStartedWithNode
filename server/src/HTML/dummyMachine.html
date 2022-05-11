@@ -1,0 +1,31 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  	<meta charset="utf-8">
+</head>
+<body>
+    <div id="display">
+
+	</div>
+</body>
+</html>
+<script>
+	let display = document.getElementById("display");
+
+	function sendSensorData(){
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', '/machine');
+		xhr.setRequestHeader("Content-Type", "application/json");
+		xhr.onreadystatechange = function() { // Call a function when the state changes.
+			if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+				console.log('recived',this.response)
+				display.innerText = JSON.parse(this.response).fingersExtended
+				setTimeout(sendSensorData,500);
+			}
+		}
+		xhr.send(JSON.stringify({}));
+	}
+
+	sendSensorData()
+</script>
