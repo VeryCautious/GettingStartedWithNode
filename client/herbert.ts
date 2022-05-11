@@ -2,7 +2,7 @@ import { FACEMESH_TESSELATION, HAND_CONNECTIONS, Holistic, LandmarkConnectionArr
 import { Camera } from "@mediapipe/camera_utils";
 import { drawConnectors, drawLandmarks } from "@mediapipe/drawing_utils";
 import { crossproduct, normalize, diretionBetween, dotProduct, Point } from "./meth";
-import { HandState } from "./types";
+import { HandState, RightHandState } from "./types";
 
 const videoElement : HTMLVideoElement = <HTMLVideoElement> document.getElementsByClassName('input_video')[0];
 const canvasElement : HTMLCanvasElement = <HTMLCanvasElement> document.getElementsByClassName('output_canvas')[0];
@@ -58,11 +58,7 @@ function getJointIndexesOf(finger: Finger): number[] {
 }
 
 function onResults(results :any) {
-	
-	console.log(Math.round(results.rightHandLandmarks[Index_Wrist] *100) /100)
-
 	updateExtendedFingerState(results);
-
 	DisplayVisualizationOf(results);
 }
 
@@ -97,12 +93,33 @@ function updateExtendedFingerState(results: any) {
 
 		lastStateLeft = newState;
 	}
+
+
+	if (results.rightHandLandmarks) {
+		const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger))
+		const grap = extendedArray.filter(b => b).length === 0
+		const wristPos = results.rightHandLandmarks[Index_Wrist]
+		sendRightHandStateToServer({pos: wristPos, grap})
+	}
 }
 
 function sendLeftHandStateToServer(state : HandState){
 	lastSentStateLeft = state
 	var xhr = new XMLHttpRequest();
-	xhr.open('POST', '/Commands');
+	xhr.open('POST', '/Commands/LeftHandState');
+	xhr.setRequestHeader("Content-Type", "application/json");
+	xhr.onreadystatechange = function() { // Call a function when the state changes.
+		if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+			console.log('recived',this.response)
+		}
+	}
+	xhr.send(JSON.stringify(state));
+	console.log('sent',state)
+}
+
+function sendRightHandStateToServer(state: RightHandState) {
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST', '/Commands/RightHandState');
 	xhr.setRequestHeader("Content-Type", "application/json");
 	xhr.onreadystatechange = function() { // Call a function when the state changes.
 		if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {

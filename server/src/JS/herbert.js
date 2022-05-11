@@ -24,8 +24,8 @@ const Index_Pinky_CMC = 17;
 const Index_Pinky_MCP = 18;
 const Index_Pinky_IP = 19;
 const Index_Pinky_TIP = 20;
-var lastState = undefined;
-var lastSentState = undefined;
+var lastStateLeft = undefined;
+var lastSentStateLeft = undefined;
 var AmmountOfSameStates = 0;
 var Finger;
 (function (Finger) {
@@ -44,10 +44,12 @@ function getJointIndexesOf(finger) {
     return [startIndex, startIndex + 1, startIndex + 2, startIndex + 3];
 }
 function onResults(results) {
-    if (results.rightHandLandmarks) {
-        console.log(Math.round(results.rightHandLandmarks[Index_Wrist].x *100) /100,Math.round(results.rightHandLandmarks[Index_Wrist].y *100) /100)
-        
-        const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger));
+    updateExtendedFingerState(results);
+    DisplayVisualizationOf(results);
+}
+function updateExtendedFingerState(results) {
+    if (results.leftHandLandmarks) {
+        const extendedArray = FINGERS.map(finger => isExtended(results.leftHandLandmarks, finger));
         var newState = {
             thumbExtended: extendedArray[0],
             indexExtended: extendedArray[1],
@@ -56,7 +58,7 @@ function onResults(results) {
             pinkyExtended: extendedArray[4],
             fingersExtended: extendedArray.filter(b => b).length
         };
-        var areSame = lastState !== undefined && statesAreSame(lastState, newState);
+        var areSame = lastStateLeft !== undefined && statesAreSame(lastStateLeft, newState);
         if (areSame) {
             AmmountOfSameStates++;
         }
@@ -65,18 +67,35 @@ function onResults(results) {
         }
         if (AmmountOfSameStates <= 10)
             console.log("Stability", AmmountOfSameStates);
-        if (lastState === undefined || lastSentState === undefined || AmmountOfSameStates === 10) {
-            if (lastSentState === undefined || !statesAreSame(lastSentState, newState))
-                sendStateToServer(newState);
+        if (lastStateLeft === undefined || lastSentStateLeft === undefined || AmmountOfSameStates === 10) {
+            if (lastSentStateLeft === undefined || !statesAreSame(lastSentStateLeft, newState))
+                sendLeftHandStateToServer(newState);
         }
-        lastState = newState;
+        lastStateLeft = newState;
     }
-    DisplayVisualizationOf(results);
+    if (results.rightHandLandmarks) {
+        const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger));
+        const grap = extendedArray.filter(b => b).length === 0;
+        const wristPos = results.rightHandLandmarks[Index_Wrist];
+        sendRightHandStateToServer({ pos: wristPos, grap });
+    }
 }
-function sendStateToServer(state) {
-    lastSentState = state;
+function sendLeftHandStateToServer(state) {
+    lastSentStateLeft = state;
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/Commands');
+    xhr.open('POST', '/Commands/LeftHandState');
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.onreadystatechange = function () {
+        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+            console.log('recived', this.response);
+        }
+    };
+    xhr.send(JSON.stringify(state));
+    console.log('sent', state);
+}
+function sendRightHandStateToServer(state) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/Commands/RightHandState');
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onreadystatechange = function () {
         if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {

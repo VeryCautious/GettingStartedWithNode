@@ -1,3 +1,5 @@
+import { Point } from "./meth"
+
 export type HandState = {
 	thumbExtended: boolean
 	indexExtended: boolean
@@ -5,4 +7,9 @@ export type HandState = {
 	ringExtended: boolean 
 	pinkyExtended: boolean
 	fingersExtended: number
+}
+
+export type RightHandState = {
+	pos: Point
+	grap: boolean
 }

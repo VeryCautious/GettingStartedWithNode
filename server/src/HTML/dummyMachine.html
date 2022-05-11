@@ -5,26 +5,95 @@
   	<meta charset="utf-8">
 </head>
 <body>
-    <div id="display">
-
-	</div>
+	<!-- https://www.google.com/search?q=steel+background&tbm=isch&ved=2ahUKEwizk6Wl9Nf3AhUBgqQKHdTxD_4Q2-cCegQIABAA&oq=steel+background&gs_lcp=CgNpbWcQAzIFCAAQgAQyBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB46BwgjEO8DECc6BAgAEEM6BggAEAgQHjoECAAQGDoKCCMQ7wMQ6gIQJzoICAAQgAQQsQM6CwgAEIAEELEDEIMBUKkEWM4wYNMyaAlwAHgCgAFmiAHyDpIBBDMyLjKYAQCgAQGqAQtnd3Mtd2l6LWltZ7ABCsABAQ&sclient=img&ei=0-l7YvPdJYGEkgXU47_wDw&bih=746&biw=1536&rlz=1C1UEAD_deDE973DE973#imgrc=iNhIJ7hRuELB7M --> 
+	<svg id="hole-background" width="100%" height="600px" xmlns="http://www.w3.org/2000/svg">
+		<image preserveAspectRatio="none" id="steel-background" width="100%" height="600px" href="/images/steel" alt="steel-background"></image>
+	</svg>
+	<div id="display" width="100%"></div>
 </body>
 </html>
+<style type="text/css">
+	#hole-background {
+		position: absolute
+	}
+	</style>
 <script>
-	let display = document.getElementById("display");
+	const display = document.getElementById("display");
+	const holeBackground = document.getElementById('hole-background')
+	const background = document.getElementById("steel-background")
 
-	function sendSensorData(){
+
+	
+	const HOLE_POSITIONS = [
+		[0.2, 0.2],
+		[0.8, 0.2],
+		[0.2, 0.8],
+		[0.8, 0.8]
+	]
+	
+	var rect = background.getBoundingClientRect();
+	const screenWidth = rect.width
+	const screenHeight = rect.height
+	console.log(screenHeight, screenWidth)
+	HOLE_POSITIONS.forEach((hole, index) => {
+		var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+		circle.setAttribute('cx', hole[0] * screenWidth)
+  		circle.setAttribute('cy', hole[1] * screenHeight)
+  		circle.setAttribute('r', 15)
+		circle.setAttribute('z', 1)
+		circle.setAttribute('id', 'hole' + index)
+		circle.setAttribute('fill', "#4449")
+		holeBackground.appendChild(circle)
+	})
+
+	const screw = document.createElementNS('http://www.w3.org/2000/svg', 'image')
+	screw.setAttribute("width", 50)
+	screw.setAttribute("height", 50)
+	screw.setAttribute("href", "/images/screwhead")
+	holeBackground.appendChild(screw)
+
+	const hand = document.createElementNS('http://www.w3.org/2000/svg', 'image')
+	hand.setAttribute('x', 0)
+	hand.setAttribute('y', 0)
+	hand.setAttribute('width', 20)
+	hand.setAttribute('height', 20)
+	hand.setAttribute('id', 'hand')
+	hand.setAttribute('href', '/images/crosshair_red')
+	holeBackground.appendChild(hand)
+	
+	function sendSensorData() {
 		var xhr = new XMLHttpRequest();
 		xhr.open('POST', '/machine');
 		xhr.setRequestHeader("Content-Type", "application/json");
 		xhr.onreadystatechange = function() { // Call a function when the state changes.
 			if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-				console.log('recived',this.response)
-				display.innerText = JSON.parse(this.response).fingersExtended
-				setTimeout(sendSensorData,500);
+				console.log('received', this.response)
+				var resp = DisplayState(JSON.parse(this.response))
+				setTimeout(sendSensorData,3);
 			}
 		}
 		xhr.send(JSON.stringify({}));
+	}
+	
+	function DisplayState(state) {
+
+		display.innerText = JSON.stringify(state)
+	
+		if(!state.right || !state.left)
+			return;
+			
+		var posx = background.style.x + (1-state.right.pos.x) * screenWidth
+		var posy = background.style.y + state.right.pos.y * screenHeight
+		
+		hand.setAttribute('x', posx - 10)
+		hand.setAttribute('y', posy - 10)
+		hand.setAttribute('href', state.right.grap ? '/images/crosshair_green' : '/images/crosshair_red')
+
+		posx = (1-state.screw.x) * screenWidth
+		posy = state.screw.y * screenHeight
+		console.log(state.screw.x, posx, screenWidth)
+		screw.setAttribute('x', posx - 25)	
+		screw.setAttribute('y', posy - 25)
 	}
 
 	sendSensorData()
