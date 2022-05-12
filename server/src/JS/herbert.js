@@ -75,7 +75,7 @@ function updateExtendedFingerState(results) {
     }
     if (results.rightHandLandmarks) {
         const extendedArray = FINGERS.map(finger => isExtended(results.rightHandLandmarks, finger));
-        const grap = extendedArray.filter(b => b).length === 0;
+        const grap = extendedArray.filter(b => b).length <= 1;
         const wristPos = results.rightHandLandmarks[Index_Wrist];
         sendRightHandStateToServer({ pos: wristPos, grap });
     }
