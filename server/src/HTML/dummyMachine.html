@@ -1,49 +1,51 @@
 
 <!DOCTYPE html>
 <html>
-<head>
-  	<meta charset="utf-8">
-</head>
-<body>
-	<!-- https://www.google.com/search?q=steel+background&tbm=isch&ved=2ahUKEwizk6Wl9Nf3AhUBgqQKHdTxD_4Q2-cCegQIABAA&oq=steel+background&gs_lcp=CgNpbWcQAzIFCAAQgAQyBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB46BwgjEO8DECc6BAgAEEM6BggAEAgQHjoECAAQGDoKCCMQ7wMQ6gIQJzoICAAQgAQQsQM6CwgAEIAEELEDEIMBUKkEWM4wYNMyaAlwAHgCgAFmiAHyDpIBBDMyLjKYAQCgAQGqAQtnd3Mtd2l6LWltZ7ABCsABAQ&sclient=img&ei=0-l7YvPdJYGEkgXU47_wDw&bih=746&biw=1536&rlz=1C1UEAD_deDE973DE973#imgrc=iNhIJ7hRuELB7M --> 
-	<svg id="hole-background" width="100%" height="600px" xmlns="http://www.w3.org/2000/svg">
-		<image preserveAspectRatio="none" id="steel-background" width="100%" height="600px" href="/images/steel" alt="steel-background"></image>
-	</svg>
-	<div id="display" width="100%"></div>
-</body>
-</html>
-<style type="text/css">
-	#hole-background {
-		position: absolute
-	}
-	</style>
+	<head>
+		<meta charset="utf-8">
+	</head>
+	<body>
+		<!-- https://www.google.com/search?q=steel+background&tbm=isch&ved=2ahUKEwizk6Wl9Nf3AhUBgqQKHdTxD_4Q2-cCegQIABAA&oq=steel+background&gs_lcp=CgNpbWcQAzIFCAAQgAQyBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB4yBAgAEB46BwgjEO8DECc6BAgAEEM6BggAEAgQHjoECAAQGDoKCCMQ7wMQ6gIQJzoICAAQgAQQsQM6CwgAEIAEELEDEIMBUKkEWM4wYNMyaAlwAHgCgAFmiAHyDpIBBDMyLjKYAQCgAQGqAQtnd3Mtd2l6LWltZ7ABCsABAQ&sclient=img&ei=0-l7YvPdJYGEkgXU47_wDw&bih=746&biw=1536&rlz=1C1UEAD_deDE973DE973#imgrc=iNhIJ7hRuELB7M --> 
+		<svg id="hole-background" width="100%" height="600px" xmlns="http://www.w3.org/2000/svg">
+			<image preserveAspectRatio="none" id="steel-background" width="100%" height="600px" href="/images/steel" alt="steel-background"></image>
+		</svg>
+		<div id="display" width="100%" style="position: fixed;"></div>
+	</body>
+	</html>
+	<style type="text/css">
+		#hole-background {
+			position: absolute
+		}
+		</style>
 <script>
 	const display = document.getElementById("display");
 	const holeBackground = document.getElementById('hole-background')
 	const background = document.getElementById("steel-background")
+
+	var lastScrewSize = 1
 	
 	const HOLE_POSITIONS = [
-		[0.2, 0.2],
-		[0.8, 0.2],
-		[0.2, 0.8],
-		[0.8, 0.8]
+		[0.2, 0.2, 18],
+		[0.8, 0.2, 21],
+		[0.2, 0.8, 24],
+		[0.8, 0.8, 15]
 	]
 	
 	var rect = background.getBoundingClientRect();
 	const screenWidth = rect.width
 	const screenHeight = rect.height
-
+	
 	HOLE_POSITIONS.forEach((hole, index) => {
-		const circle = createHole(hole[0] * screenWidth, hole[1] * screenHeight, index)
+		const circle = createHole(hole[0] * screenWidth, hole[1] * screenHeight, hole[2], index)
 		holeBackground.appendChild(circle)
 	})
 	
-	const screw = createScrew()
-	const hand = createHand()
+	var screw = createScrewContainer(lastScrewSize)
 	holeBackground.appendChild(screw)
+
+	const hand = createHand()
 	holeBackground.appendChild(hand)
-	
-	
+
 	function sendSensorData() {
 		var xhr = new XMLHttpRequest();
 		xhr.open('POST', '/machine');
@@ -59,7 +61,7 @@
 	
 	function DisplayState(state) {
 
-		display.innerText = JSON.stringify(state)
+		//display.innerText = JSON.stringify(state)
 		
 		if(state.right){
 			DisplayRightHand(state.right)
@@ -67,10 +69,6 @@
 		
 		if(state.screw){
 			DisplayScrew(state.screw)
-			if (state.commandQueue) {
-				const fingerNumber = state.commandQueue.pop()
-				
-			}
 		}
 
 	}
@@ -82,7 +80,20 @@
 	
 	
 	function DisplayScrew(screwState){
-		moveSvgImageCentered(screw, screwState.x, screwState.y)
+		// moveSvgImageCentered(screw, screwState.x, screwState.y)
+		if (screwState.size != lastScrewSize) {
+			lastScrewSize = screwState.size
+			holeBackground.removeChild(screw)
+			const scale = 0.8 + 0.2*screwState.size
+			screw = createScrewContainer(scale)
+			holeBackground.appendChild(screw)
+			holeBackground.removeChild(hand)
+			holeBackground.appendChild(hand)
+		}
+		const rect = screw.getBoundingClientRect()
+		var posx = (1-screwState.x) * screenWidth - Math.ceil(rect.width / 2.0)
+		var posy = screwState.y * screenHeight -  Math.ceil(rect.height / 2.0)
+		screw.setAttribute("transform", `translate(${posx}, ${posy})`)
 	}
 	
 	function moveSvgImageCentered(svgImage, x, y) {
@@ -93,11 +104,11 @@
 		svgImage.setAttribute('y', posy - rect.height / 2.0)
 	}
 	
-	function createHole(posX, posY, id){
+	function createHole(posX, posY, size, id){
 		const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
 		circle.setAttribute('cx', posX)
 		circle.setAttribute('cy', posY)
-		circle.setAttribute('r', 15)
+		circle.setAttribute('r', size)
 		circle.setAttribute('z', 1)
 		circle.setAttribute('id', 'hole' + id)
 		circle.setAttribute('fill', "#4449")
@@ -113,11 +124,34 @@
 		return hand
 	}
 
-	function createScrew(){
-		const screw = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-		screw.setAttribute("width", 50)
-		screw.setAttribute("height", 50)
-		screw.setAttribute("href", "/images/screwhead")
+	function createScrewContainer(sizeFactor){
+
+		const screw = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+		screw.setAttribute("transform", "translate(200, 200)")
+
+		const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+		circle.setAttribute('cx', sizeFactor*20)
+		circle.setAttribute('cy', sizeFactor*20)
+		circle.setAttribute('r', sizeFactor*20)
+		circle.setAttribute('fill', "#999")
+		screw.appendChild(circle)
+
+		const vert = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+		vert.setAttribute('x', sizeFactor*17)
+		vert.setAttribute('y', sizeFactor*10)
+		vert.setAttribute('width', sizeFactor*6)
+		vert.setAttribute('height', sizeFactor*20)
+		vert.setAttribute('fill', "#444")
+		screw.appendChild(vert)
+
+		const horizontal = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+		horizontal.setAttribute('x', sizeFactor*10)
+		horizontal.setAttribute('y', sizeFactor*17)
+		horizontal.setAttribute('width', sizeFactor*20)
+		horizontal.setAttribute('height', sizeFactor*6)
+		horizontal.setAttribute('fill', "#444")
+
+		screw.appendChild(horizontal)
 		return screw
 	}
 

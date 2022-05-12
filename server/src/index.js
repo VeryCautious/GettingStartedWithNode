@@ -5,7 +5,8 @@ const app = express();
 
 var leftState = {};
 var rightState = {};
-var screwState = {x:0.2,y:0.2,isGrabbed:false};
+var screwState = {x:0.3,y:0.3,isGrabbed:false,size:1};
+var erwinsNeedsToKnowItTurned =false
 var commandQueue = [];
 
 app.listen(8080, () => {
@@ -36,22 +37,26 @@ app.post("/machine", (req, res) => {
   res.end(JSON.stringify({
     right: rightState,
     screw: screwState,
-    toDos: commandQueue
+    toDos: [...commandQueue]
   }));
   commandQueue = []
 });
 
 app.get("/erwin", (req, res) => {
-  res.end(rightState.grap);
+  res.end(JSON.stringify({grabbing:rightState.grap,screwing:erwinsNeedsToKnowItTurned}));
+  erwinsNeedsToKnowItTurned =false
 });
 
 // post endpoint
 app.post('/Commands/LeftHandState', bodyParser.json(), (req, res) => {
   leftState = req.body
 
-  if(leftState.fingersExtended > 0)
+  if(leftState.fingersExtended > 0){
+    screwState.size = leftState.fingersExtended
     commandQueue.push(leftState.fingersExtended)
-    
+    erwinsNeedsToKnowItTurned = true
+  }
+
   res.end(JSON.stringify(leftState));
 });
 
